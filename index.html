@@ -1,37 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pyramid Net Interactive</title>
+  <title>Pyramid Net Slider</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
       background: #f7f7f7;
     }
-    h1 { color: #333; }
+
     canvas {
       background: white;
       border: 2px solid #ccc;
       margin-top: 10px;
     }
-    button {
-      font-size: 18px;
-      padding: 10px 18px;
-      margin: 10px;
-      border-radius: 8px;
-      border: none;
-      background: #ffcc33;
-      cursor: pointer;
+
+    input {
+      width: 400px;
     }
   </style>
 </head>
 <body>
 
 <h1>Pyramid Net Interactive</h1>
-<p>Click the buttons to fold and unfold the pyramid.</p>
+<p>Drag the slider to open or close the net.</p>
 
-<button onclick="showNet()">Show Net</button>
-<button onclick="showPyramid()">Fold into Pyramid</button>
+<label>Open Net</label>
+<input type="range" id="foldSlider" min="0" max="100" value="100">
+<label>Close Pyramid</label>
 
 <br>
 <canvas id="canvas" width="700" height="500"></canvas>
@@ -39,16 +35,25 @@
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+const slider = document.getElementById("foldSlider");
+
+slider.addEventListener("input", draw);
 
 function clearCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-function triangle(x1, y1, x2, y2, x3, y3, colour, label) {
+function drawPolygon(points, colour, alpha = 1, label = "") {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
   ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.lineTo(x3, y3);
+  ctx.moveTo(points[0].x, points[0].y);
+
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
+
   ctx.closePath();
   ctx.fillStyle = colour;
   ctx.fill();
@@ -56,77 +61,72 @@ function triangle(x1, y1, x2, y2, x3, y3, colour, label) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  ctx.fillStyle = "black";
-  ctx.font = "18px Arial";
-  ctx.fillText(label, (x1 + x2 + x3) / 3 - 20, (y1 + y2 + y3) / 3);
+  ctx.restore();
+
+  if (label) {
+    const cx = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+    const cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+    ctx.fillStyle = "black";
+    ctx.font = "18px Arial";
+    ctx.fillText(label, cx - 20, cy);
+  }
 }
 
-function square(x, y, size, colour, label) {
-  ctx.fillStyle = colour;
-  ctx.fillRect(x, y, size, size);
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x, y, size, size);
-
-  ctx.fillStyle = "black";
-  ctx.font = "20px Arial";
-  ctx.fillText(label, x + 35, y + 55);
-}
-
-function showNet() {
+function draw() {
   clearCanvas();
 
-  const x = 300;
-  const y = 200;
-  const s = 100;
+  const t = slider.value / 100; 
+  // t = 1 means open net
+  // t = 0 means closed pyramid
 
-  square(x, y, s, "#ffd633", "Base");
+  const base = [
+    {x: 300, y: 240},
+    {x: 400, y: 240},
+    {x: 400, y: 340},
+    {x: 300, y: 340}
+  ];
 
-  triangle(x, y, x + s, y, x + s/2, y - 100, "#ffeb80", "Face");
-  triangle(x, y + s, x + s, y + s, x + s/2, y + s + 100, "#ffeb80", "Face");
-  triangle(x, y, x, y + s, x - 100, y + s/2, "#ffeb80", "Face");
-  triangle(x + s, y, x + s, y + s, x + s + 100, y + s/2, "#ffeb80", "Face");
+  const apexClosed = {x: 350, y: 120};
 
-  ctx.font = "18px Arial";
+  const topApexOpen = {x: 350, y: 120};
+  const bottomApexOpen = {x: 350, y: 460};
+  const leftApexOpen = {x: 180, y: 290};
+  const rightApexOpen = {x: 520, y: 290};
+
+  function mix(openPoint, closedPoint) {
+    return {
+      x: closedPoint.x + (openPoint.x - closedPoint.x) * t,
+      y: closedPoint.y + (openPoint.y - closedPoint.y) * t
+    };
+  }
+
+  const topApex = mix(topApexOpen, apexClosed);
+  const bottomApex = mix(bottomApexOpen, apexClosed);
+  const leftApex = mix(leftApexOpen, apexClosed);
+  const rightApex = mix(rightApexOpen, apexClosed);
+
+  // Base is solid
+  drawPolygon(base, "#ffd633", 1, "Base");
+
+  // Other faces are slightly translucent
+  drawPolygon([base[0], base[1], topApex], "#ffeb80", 0.6, "Face");
+  drawPolygon([base[2], base[3], bottomApex], "#ffeb80", 0.6, "Face");
+  drawPolygon([base[3], base[0], leftApex], "#ffeb80", 0.6, "Face");
+  drawPolygon([base[1], base[2], rightApex], "#ffeb80", 0.6, "Face");
+
   ctx.fillStyle = "#333";
-  ctx.fillText("This is the net of a square-based pyramid.", 190, 430);
+  ctx.font = "18px Arial";
+
+  if (t > 0.7) {
+    ctx.fillText("Open net of a square-based pyramid", 205, 430);
+  } else if (t < 0.3) {
+    ctx.fillText("Closed square-based pyramid", 235, 430);
+  } else {
+    ctx.fillText("The triangular faces are folding up", 210, 430);
+  }
 }
 
-function showPyramid() {
-  clearCanvas();
-
-  const apexX = 350;
-  const apexY = 100;
-
-  const base1 = {x: 250, y: 300};
-  const base2 = {x: 450, y: 300};
-  const base3 = {x: 410, y: 380};
-  const base4 = {x: 290, y: 380};
-
-  // base
-  ctx.beginPath();
-  ctx.moveTo(base1.x, base1.y);
-  ctx.lineTo(base2.x, base2.y);
-  ctx.lineTo(base3.x, base3.y);
-  ctx.lineTo(base4.x, base4.y);
-  ctx.closePath();
-  ctx.fillStyle = "#ffd633";
-  ctx.fill();
-  ctx.stroke();
-
-  // faces
-  triangle(apexX, apexY, base1.x, base1.y, base2.x, base2.y, "#ffeb80", "");
-  triangle(apexX, apexY, base2.x, base2.y, base3.x, base3.y, "#ffe066", "");
-  triangle(apexX, apexY, base3.x, base3.y, base4.x, base4.y, "#ffdb4d", "");
-  triangle(apexX, apexY, base4.x, base4.y, base1.x, base1.y, "#fff099", "");
-
-  ctx.fillStyle = "black";
-  ctx.font = "20px Arial";
-  ctx.fillText("Square-based Pyramid", 250, 440);
-}
-
-// Start with net
-showNet();
+draw();
 </script>
 
 </body>
